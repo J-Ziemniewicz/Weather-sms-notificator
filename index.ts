@@ -16,14 +16,6 @@ interface WeatherSmsNotifier {
     long: string;
 }
 
-interface CityInterface {
-    name: string,
-    local_names: any,
-    lat: string,
-    lon: string,
-    country: string,
-}
-
 
 // Secrets
 
@@ -38,13 +30,19 @@ const FROM_PHONE_NUMBER = config.get("fromPhoneNumber");
 const OPENWEATHER_API_KEY = config.get("openweatherApiKey");
 
 
-// Config, PubSub and Cloud Functions
+// Config
 
 const runtime = "nodejs14"; 
 
+// GCP PubSub
+
 const messageTopic = new gcp.pubsub.Topic("weatherQueue");
 
-const endpoint = new gcp.cloudfunctions.HttpCallbackFunction("weather-notifier",
+/** GCP Function WeatherNotifierFn is responsible for receiving requests from clients, fetching city latitude and longitude and puting it for
+ * further processing in GCP PubSub.
+ */
+
+const endpoint = new gcp.cloudfunctions.HttpCallbackFunction("WeatherNotifierFn",
 {
     runtime: runtime,
     callbackFactory: () => {
@@ -62,27 +60,25 @@ const endpoint = new gcp.cloudfunctions.HttpCallbackFunction("weather-notifier",
                 return res.status(400).json({ errors: errors.array() });
             }
             const body = req.body;
-
             const url = 'http://api.openweathermap.org/geo/1.0/direct?q='+body['city']+'&limit=1&appid='+OPENWEATHER_API_KEY;
-            console.log(url);
             try{
-                const response = await fetch(encodeURI(url));
-                if(!response.ok){
-                    return res.status(503).send({error: "OpenWeatherMap API doesn't respond, please try later"});
-                }
-                const jsonResp = await response.json();
-                // console.log(jsonResp);
-                const smsData : WeatherSmsNotifier = {
-                    phone_nb: body['phone_nb'],
-                    city: body['city'],
-                    lat: jsonResp.lat,
-                    long: jsonResp.lon}
-                const pubSub: gpubsub.PubSub =  new gpubsub.PubSub();
-                const topic = pubSub.topic(messageTopic.name.get());
-                topic.publish(Buffer.from(JSON.stringify(smsData)));
-    
-                // TODO: Change for res.status(200).send();
-                res.status(200).send("Sending SMS with temperature");
+                fetch(encodeURI(url)).then(function(response){
+                    if (!response.ok){
+                        return res.status(503).send({error: "OpenWeatherMap API doesn't respond, please try later"});
+                    }
+                    return response;
+                }).then(response => response.json()).then(data => {
+                    const smsData : WeatherSmsNotifier = {
+                        phone_nb: body['phone_nb'],
+                        city: body['city'],
+                        lat: data[0].lat,
+                        long: data[0].lon};
+                    const pubSub: gpubsub.PubSub =  new gpubsub.PubSub();
+                    const topic = pubSub.topic(messageTopic.name.get());
+                    topic.publish(Buffer.from(JSON.stringify(smsData)));
+                    res.status(200).send("Sending SMS with temperature");
+            
+                });
             }catch (err){
                 console.log("Error: " + (err.stack || err.message));
             }
@@ -94,31 +90,31 @@ const endpoint = new gcp.cloudfunctions.HttpCallbackFunction("weather-notifier",
     }
 })
 
-messageTopic.onMessagePublished("processNewInput",{
+/** GCP Function SendSmsFn called on insert into GCP PubSub event. Function responsible for  
+ * fetching temperature from OpenWeatherApi for specified latitude and longitude passed to PubSub.
+ * Then SMS for specified number is sent with fetched temperature and city name.
+ */
+
+messageTopic.onMessagePublished("SendSmsFn",{
     runtime: runtime, 
 
     callback: async (data) => {
     try {
         const smsData = <WeatherSmsNotifier>JSON.parse(Buffer.from(data.data, "base64").toString());
-        console.log("Second function");
         const url = 'https://api.openweathermap.org/data/2.5/onecall?lat='+smsData.lat+'&lon='+smsData.long+'&exclude=hourly,daily,minutely,alerts&units=metric&appid='+OPENWEATHER_API_KEY;
-        console.log(url);
-        // ERROR
         const response = await fetch(url);
-        const {respData, errors} = await response.json()
+        const respData = await response.json()
 
         if (response.ok) {
-            console.log(response.status);
-            console.log(response.body);
-            console.log(respData.current.temp);
-            // const client = new Twilio(TWILLIO_ACCOUNT_SID!, TWILLIO_ACCESS_TOKEN!);
-            // client.messages.create({
-            //     from:FROM_PHONE_NUMBER,
-            //     to: smsData.phone_nb,
-            //     body: "Current temperature in "+smsData.city+" is "+respData['current']['temp']+" Celsius.",
-            // }).then((message) => console.log(message.sid));
-        } else {
-            console.log("Error: "+errors);
+            const client = new Twilio(TWILLIO_ACCOUNT_SID!, TWILLIO_ACCESS_TOKEN!);
+            client.messages.create({
+                from:FROM_PHONE_NUMBER,
+                to: smsData.phone_nb,
+                body: "Current temperature in "+smsData.city+" is "+respData['current']['temp']+" Celsius.",
+            }).then((message) => console.log(message.sid));
+        }
+        else {
+            console.log("Response failed");
         }
         
     }
