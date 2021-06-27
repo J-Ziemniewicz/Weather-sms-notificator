@@ -33,6 +33,7 @@ const OPENWEATHER_API_KEY = config.get("openweatherApiKey");
 // Config
 
 const runtime = "nodejs14"; 
+const location = gcp.config.region || "europe-central1";
 
 // GCP PubSub
 
@@ -97,7 +98,6 @@ const endpoint = new gcp.cloudfunctions.HttpCallbackFunction("WeatherNotifierFn"
 
 messageTopic.onMessagePublished("SendSmsFn",{
     runtime: runtime, 
-
     callback: async (data) => {
     try {
         const smsData = <WeatherSmsNotifier>JSON.parse(Buffer.from(data.data, "base64").toString());

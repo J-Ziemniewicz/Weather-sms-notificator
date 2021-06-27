@@ -1,0 +1,4 @@
+/bin/
+/node_modules/
+Pulumi.*.yaml
+/webapp/weather-app/node_modules
