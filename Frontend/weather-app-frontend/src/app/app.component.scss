@@ -1,0 +1,32 @@
+.container {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+}
+
+h1 {
+    text-align: center;
+}
+
+.form-container {
+    border: 1px solid black;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.form{
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group {
+    display: flex;
+    justify-content: space-between;
+    max-width: 80%;
+    padding: 10px 0;
+}
+
+.btn {
+    align-self: flex-end;
+}

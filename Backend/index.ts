@@ -2,6 +2,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 import * as gpubsub from "@google-cloud/pubsub";
 import * as express from "express";
+import * as cors from "cors";
 import { body, validationResult } from 'express-validator';
 import fetch from "node-fetch";
 import { Twilio } from "twilio";
@@ -49,6 +50,7 @@ const endpoint = new gcp.cloudfunctions.HttpCallbackFunction("WeatherNotifierFn"
     callbackFactory: () => {
         const app = express();
         app.use(express.json());
+        app.use(cors());
         app.post("/sms-notification",
         body('phone_nb').isMobilePhone(['pl-PL','es-ES']),
         body('phone_nb').not().isEmpty(),
@@ -58,14 +60,14 @@ const endpoint = new gcp.cloudfunctions.HttpCallbackFunction("WeatherNotifierFn"
 
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                return res.status(400).json({ errors: errors.array() });
+                return res.status(200).json({status: "error",message: "Bad request. Please provide needed data"});
             }
             const body = req.body;
             const url = 'http://api.openweathermap.org/geo/1.0/direct?q='+body['city']+'&limit=1&appid='+OPENWEATHER_API_KEY;
             try{
                 fetch(encodeURI(url)).then(function(response){
                     if (!response.ok){
-                        return res.status(503).send({error: "OpenWeatherMap API doesn't respond, please try later"});
+                        return res.status(200).send({status: "error",message: "OpenWeatherMap API doesn't respond, please try later"});
                     }
                     return response;
                 }).then(response => response.json()).then(data => {
@@ -75,9 +77,10 @@ const endpoint = new gcp.cloudfunctions.HttpCallbackFunction("WeatherNotifierFn"
                         lat: data[0].lat,
                         long: data[0].lon};
                     const pubSub: gpubsub.PubSub =  new gpubsub.PubSub();
+                    console.log(smsData);
                     const topic = pubSub.topic(messageTopic.name.get());
                     topic.publish(Buffer.from(JSON.stringify(smsData)));
-                    res.status(200).send("Sending SMS with temperature");
+                    res.status(200).json({ status: "ok" ,message: "Sending SMS with temperature"});
             
                 });
             }catch (err){
@@ -101,17 +104,19 @@ messageTopic.onMessagePublished("SendSmsFn",{
     callback: async (data) => {
     try {
         const smsData = <WeatherSmsNotifier>JSON.parse(Buffer.from(data.data, "base64").toString());
+        console.log(smsData);
         const url = 'https://api.openweathermap.org/data/2.5/onecall?lat='+smsData.lat+'&lon='+smsData.long+'&exclude=hourly,daily,minutely,alerts&units=metric&appid='+OPENWEATHER_API_KEY;
         const response = await fetch(url);
         const respData = await response.json()
 
         if (response.ok) {
+            console.log("test");
             const client = new Twilio(TWILLIO_ACCOUNT_SID!, TWILLIO_ACCESS_TOKEN!);
-            client.messages.create({
+            await client.messages.create({
                 from:FROM_PHONE_NUMBER,
                 to: smsData.phone_nb,
                 body: "Current temperature in "+smsData.city+" is "+respData['current']['temp']+" Celsius.",
-            }).then((message) => console.log(message.sid));
+            }).then((message) => console.log("Message sent "+ message.sid));
         }
         else {
             console.log("Response failed");

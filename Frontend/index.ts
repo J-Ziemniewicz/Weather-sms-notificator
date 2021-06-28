@@ -4,6 +4,10 @@ import * as docker from "@pulumi/docker";
 
 const location = gcp.config.region || "europe-central2";
 
+const config = new pulumi.Config();
+config.requireSecret("weatherApi");
+const WEATHER_API = config.get("weatherApi");
+
 const enableCloudRun = new gcp.projects.Service("EnableCloudRun", {
     service: "run.googleapis.com",
 });
@@ -12,6 +16,7 @@ const enableCloudRun = new gcp.projects.Service("EnableCloudRun", {
 const myImage = new docker.Image("weather-app-image", {
     imageName: pulumi.interpolate`gcr.io/${gcp.config.project}/weather-app:v1.0.0`,
     build: {
+        env: {'WEATHER_API':WEATHER_API!},
         context: "./weather-app-frontend/",
     },
 });
@@ -23,7 +28,7 @@ const frontendService = new gcp.cloudrun.Service("weather-app", {
             containers: [{
                 image: myImage.imageName,
                 ports: [{
-                    containerPort: 8081,
+                    containerPort: 8080,
                 }],
                 resources: {
                     limits: {
