@@ -7,6 +7,80 @@ Project is divided into Backend and Frontend directories. Backend directory is t
 
 Frontend directory contains example usage of created API (Backend project). Example app is dockerized Angular project which is deployed with Pulumi to GCP Cloud Run.
 
+## Pulumi configuration and running Backend project
+
+1.  Restore NPM dependencies:
+
+    ```
+    $ npm install
+    ```
+
+2.  Create a new stack:
+
+    ```
+    $ pulumi stack init sms-notifier-fn
+    ```
+
+3.  Configure your GCP project and region:
+
+    ```
+    $ pulumi config set gcp:project <projectname> 
+    $ pulumi config set gcp:region <region>
+    $ pulumi config set --secret twillioAccessToken <token>
+    $ pulumi config set --secret twillioAccountSID <SID>
+    $ pulumi config set --secret fromPhoneNumber <phone_nb>
+    $ pulumi config set --secret openweatherApiKey <api_key>
+    ```
+
+4.  Run `pulumi up` to preview and deploy changes:
+
+    ``` 
+    $ pulumi up
+    Previewing changes:
+    ...
+
+    Performing changes:
+    ...
+    info: 6 changes performed:
+        + 6 resources created
+    Update duration: 39.65130324s
+    ```
+## Pulumi configuration and running Backend project
+
+1.  Restore NPM dependencies:
+
+    ```
+    $ npm install
+    ```
+
+2.  Create a new stack:
+
+    ```
+    $ pulumi stack init sms-notifier-app
+    ```
+
+3.  Configure your GCP project and region:
+
+    ```
+    $ pulumi config set gcp:project <projectname> 
+    $ pulumi config set gcp:region <region>
+    $ pulumi config set --secret weatherApi <api_key>
+    ```
+
+4.  Run `pulumi up` to preview and deploy changes:
+
+    ``` 
+    $ pulumi up
+    Previewing changes:
+    ...
+
+    Performing changes:
+    ...
+    info: 6 changes performed:
+        + 6 resources created
+    Update duration: 39.65130324s
+    ```
+
 ## Example call to API
 
 POST request with example json presented below:
