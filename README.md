@@ -21,7 +21,7 @@ Frontend directory contains example usage of created API (Backend project). Exam
     $ pulumi stack init sms-notifier-fn
     ```
 
-3.  Configure your GCP project and region:
+3.  Configure your GCP project, region and secrets:
 
     ```
     $ pulumi config set gcp:project <projectname> 
@@ -45,7 +45,7 @@ Frontend directory contains example usage of created API (Backend project). Exam
         + 6 resources created
     Update duration: 39.65130324s
     ```
-## Pulumi configuration and running Backend project
+## Pulumi configuration and running Frontend project
 
 1.  Restore NPM dependencies:
 
@@ -59,7 +59,7 @@ Frontend directory contains example usage of created API (Backend project). Exam
     $ pulumi stack init sms-notifier-app
     ```
 
-3.  Configure your GCP project and region:
+3.  Configure your GCP project, region and secrets:
 
     ```
     $ pulumi config set gcp:project <projectname> 
